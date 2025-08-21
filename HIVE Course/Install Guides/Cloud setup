@@ -1,0 +1,5 @@
+EC2 commandline tools install and setup 
+http://docs.aws.amazon.com/AWSEC2/latest/CommandLineReference/set-up-ec2-cli-linux.html
+
+Cloudera manager setup 
+http://www.cloudera.com/documentation/archive/manager/4-x/4-6-0/Cloudera-Manager-Installation-Guide/cmig_install_on_EC2.html

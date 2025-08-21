@@ -1,0 +1,40 @@
+1) Do everything in VBox Instance setup, Standalone install of hadoop and pseudo-distributed install of hadoop 
+
+2) Update the following configuration settings 
+
+a) In etc/hadoop/core-site.xml : update the hdfs hostname to master instead of localhost 
+b) In etc/hadoop/yarn-site.xml : add a property name = yarn.resourcemanager.hostname ; value = master
+c) In etc/hadoop/slaves update localhost to slave
+
+Cleanup : Delete the contents of /tmp/hadoop-master directory
+
+3) Stop your VM. Clone it : give the clone the name slave 
+Note: Check the box to Re-initialize all MAC addresses
+
+4) On slave in change the host name from master to slave in 
+/etc/hosts 
+/etc/hostname 
+Add a line to /etc/hosts
+192.168.56.101  master 
+
+5) Update the ip address in  /etc/network/interfaces on slave to 192.168.56.102
+
+6) On master update /etc/hosts 
+192.168.56.102  master 
+
+7) On master 
+$ ssh-copy-id master@slave
+
+8) On master you can now format namenode and start the Hadoop daemons
+
+$ hdfs namenode -format 
+$ cd $HADOOP_HOME 
+$ sbin/start-dfs.sh
+$ sbin/start-yarn.sh 
+
+
+
+
+
+
+

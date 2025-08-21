@@ -1,0 +1,33 @@
+1) Download and install VirtualBox https://www.virtualbox.org/
+
+2) Download an image for Ubuntu OS 
+www.ubuntu.com/download/desktop 
+
+3) Set up a new virtualbox instance named "master"
+Linux 
+Ubuntu 64 bit 
+2 GB RAM 
+VDI disk 
+Dynamically allocated 
+
+superuser name = master 
+
+4) Point to the Ubuntu OS image you downloaded and install Ubuntu on the VM 
+
+
+5) Install Java 
+
+$ sudo add-apt-repository ppa:webupd8team/java
+$ sudo apt-get update 
+$ sudo apt-get install oracle-java8-installer 
+
+6) Install OpenSSH server 
+$ sudo apt-get install openssh-server 
+
+
+
+
+
+
+
+

@@ -1,0 +1,32 @@
+
+
+Prereqs: 
+
+1) First check java version 
+$ java -version 
+
+2) Update ssh key 
+$ ssh-keygen -t dsa -P '' -f ~/.ssh/id_dsa
+$ cat ~/.ssh/id_dsa.pub >> ~/.ssh/authorized_keys
+
+3) Check if you can ssh localhost without password 
+$ ssh localhost
+
+Standalone Mode install 
+
+1) Download Hadoop from http://www.apache.org/dyn/closer.cgi/hadoop/common/
+
+2) Find your Java Home directory. 
+On OS X  - /usr/libexec/java_home 
+On Linux - depends on where you have installed 
+If its oracle JDK , then  /usr/lib/jvm/java-8-oracle/jre/
+
+3) In the unpacked Hadoop directory go to 
+etc/hadoop/hadoop-env.sh
+Update the JAVA_HOME to your java home directory
+
+4) In your bash profile, update the environment variables 
+export HADOOP_HOME=<Your hadoop home directory>
+export PATH=$PATH:$HADOOP_HOME/bin
+
+

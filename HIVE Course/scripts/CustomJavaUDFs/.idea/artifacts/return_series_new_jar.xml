@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="return_series_new:jar">
+    <output-path>$USER_HOME$/Desktop</output-path>
+    <root id="archive" name="return_series_new.jar">
+      <element id="module-output" name="CustomJavaUDFS" />
+    </root>
+  </artifact>
+</component>
