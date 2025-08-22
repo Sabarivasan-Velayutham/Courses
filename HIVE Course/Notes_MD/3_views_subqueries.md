@@ -1,146 +1,145 @@
-Hive Subqueries, Set Operations, and Views - Notes
+# Hive Subqueries, Set Operations, and Views - Notes
 
-1. UNION and UNION ALL in Hive
+## 1. UNION and UNION ALL in Hive
 
--   Hive supports UNION and UNION ALL.
--   UNION removes duplicates (like DISTINCT).
--   UNION ALL keeps duplicates.
+*   Hive supports `UNION` and `UNION ALL`.
+*   `UNION` removes duplicates (like `DISTINCT`).
+*   `UNION ALL` keeps duplicates.
 
-Syntax:
+### Syntax:
 
-    SELECT col1, col2 FROM table1
-    UNION
-    SELECT col1, col2 FROM table2;
+```sql
+SELECT col1, col2 FROM table1
+UNION
+SELECT col1, col2 FROM table2;
+```
 
-    SELECT col1, col2 FROM table1
-    UNION ALL
-    SELECT col1, col2 FROM table2;
+```sql
+SELECT col1, col2 FROM table1
+UNION ALL
+SELECT col1, col2 FROM table2;
+```
 
-Example:
+**Query:**
+```sql
+SELECT id FROM table1
+UNION
+SELECT id FROM table2;
+```
 
-    table1:
-    +----+
-    | id |
-    +----+
-    |  1 |
-    |  2 |
-    +----+
 
-    table2:
-    +----+
-    | id |
-    +----+
-    |  2 |
-    |  3 |
-    +----+
+## 2. INTERSECT and MINUS
 
-    Query:
-    SELECT id FROM table1
-    UNION
-    SELECT id FROM table2;
+*   Hive does not support `INTERSECT` and `MINUS` directly.
+*   These operations can be achieved using joins or subqueries.
 
-    Output:
-    +----+
-    | id |
-    +----+
-    |  1 |
-    |  2 |
-    |  3 |
-    +----+
+### Example for INTERSECT (common rows):
 
-------------------------------------------------------------------------
+```sql
+SELECT a.id
+FROM table1 a
+JOIN table2 b ON a.id = b.id;
+```
 
-2. INTERSECT and MINUS
+### Example for MINUS (rows in `table1` but not in `table2`):
 
--   Hive does not support INTERSECT and MINUS directly.
--   Can be achieved using joins or subqueries.
+```sql
+SELECT a.id
+FROM table1 a
+LEFT JOIN table2 b ON a.id = b.id
+WHERE b.id IS NULL;
+```
 
-Example for INTERSECT (common rows):
+---
 
-    SELECT a.id
-    FROM table1 a
-    JOIN table2 b ON a.id = b.id;
+## 3. EXISTS, IN, NOT IN in Hive
 
-Example for MINUS (rows in table1 but not in table2):
+*   `EXISTS`, `IN`, `NOT IN` are supported in Hive subqueries.
+*   `IN` / `NOT IN` must return a single column.
 
-    SELECT a.id
-    FROM table1 a
-    LEFT JOIN table2 b ON a.id = b.id
-    WHERE b.id IS NULL;
+### Example (IN):
 
-------------------------------------------------------------------------
+```sql
+SELECT id, name
+FROM employees e
+WHERE dept_id IN (SELECT id FROM departments WHERE location='Chennai');
+```
 
-3. EXISTS, IN, NOT IN in Hive
+### Example (NOT IN):
 
--   EXISTS, IN, NOT IN are supported in Hive subqueries.
--   IN / NOT IN must return a single column.
+```sql
+SELECT id, name
+FROM employees e
+WHERE dept_id NOT IN (SELECT id FROM departments WHERE location='Chennai');
+```
 
-Example (IN):
+### Example (EXISTS):
 
-    SELECT id, name
-    FROM employees e
-    WHERE dept_id IN (SELECT id FROM departments WHERE location='Chennai');
+```sql
+SELECT name
+FROM employees e
+WHERE EXISTS (SELECT 1 FROM departments d WHERE d.id = e.dept_id);
+```
 
-Example (NOT IN):
+**Note:** Equality (`=`) with a subquery is not supported in Hive (i.e., `WHERE column = (SELECT ...)` where the subquery returns more than one row).
 
-    SELECT id, name
-    FROM employees e
-    WHERE dept_id NOT IN (SELECT id FROM departments WHERE location='Chennai');
+---
 
-Example (EXISTS):
+## 4. Subquery Restrictions in Hive
 
-    SELECT name
-    FROM employees e
-    WHERE EXISTS (SELECT 1 FROM departments d WHERE d.id = e.dept_id);
+*   The referenced columns in subqueries should be in small letters (this might be specific to certain Hive versions or configurations, generally case-insensitivity applies to identifiers unless quotes are used).
+*   Hive does not allow multiple subqueries in the same outer query (this applies to certain types of subqueries, e.g., correlated subqueries, or multiple non-correlated subqueries in the `WHERE` clause).
+*   Nested subqueries are allowed.
 
-Note: Equality = with a subquery is not supported in Hive.
+### Example (Nested Subquery):
 
-------------------------------------------------------------------------
+```sql
+SELECT id
+FROM (SELECT id FROM employees WHERE salary > 50000) sub
+WHERE id > 100;
+```
 
-4. Subquery Restrictions in Hive
+---
 
--   The referenced columns in subqueries should be in small letters.
--   Hive does not allow multiple subqueries in the same outer query.
--   Nested subqueries are allowed.
+## 5. VIEWS in Hive
 
-Example (Nested Subquery):
+*   Views help simplify complex queries.
+*   A view acts like a table but is read-only.
+*   Data cannot be inserted/loaded into a view.
+*   Metadata of a view can be changed using `ALTER VIEW`.
+*   Views are shown in `SHOW TABLES` list.
 
-    SELECT id
-    FROM (SELECT id FROM employees WHERE salary > 50000) sub
-    WHERE id > 100;
+### Syntax to create a view:
 
-------------------------------------------------------------------------
+```sql
+CREATE VIEW emp_high_salary AS
+SELECT id, name, salary
+FROM employees
+WHERE salary > 50000;
+```
 
-5. VIEWS in Hive
+### Querying a view:
 
--   Views help simplify complex queries.
--   A view acts like a table but is read-only.
--   Data cannot be inserted/loaded into a view.
--   Metadata of a view can be changed using ALTER VIEW.
--   Views are shown in SHOW TABLES list.
+```sql
+SELECT * FROM emp_high_salary;
+```
 
-Syntax to create a view:
+### Describe a view:
 
-    CREATE VIEW emp_high_salary AS
-    SELECT id, name, salary
-    FROM employees
-    WHERE salary > 50000;
+```sql
+DESCRIBE EXTENDED emp_high_salary;
+```
 
-Querying a view:
+### Alter a view:
 
-    SELECT * FROM emp_high_salary;
+```sql
+ALTER VIEW emp_high_salary AS
+SELECT id, name
+FROM employees
+WHERE salary > 60000;
+```
 
-Describe a view:
-
-    DESCRIBE EXTENDED emp_high_salary;
-
-Alter a view:
-
-    ALTER VIEW emp_high_salary AS
-    SELECT id, name
-    FROM employees
-    WHERE salary > 60000;
-
-Reasons to use views: 1. Reduce query complexity. 2. Restrict access by
-exposing only required columns/rows. 3. Construct multiple logical
-tables from a single physical table.
+### Reasons to use views:
+1.  **Reduce query complexity:** Simplify complex, frequently used queries by encapsulating them in a view.
+2.  **Restrict access:** Expose only required columns/rows to specific users, enhancing security.
+3.  **Construct multiple logical tables:** Create different logical representations of data from a single physical table without duplicating data.

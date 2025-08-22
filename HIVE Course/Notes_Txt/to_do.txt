@@ -1,4 +1,0 @@
-send notes from v to out for easy alignment.  
-
-Download the files and copy the code . 
-store the txt file in one note and in confluence. 
