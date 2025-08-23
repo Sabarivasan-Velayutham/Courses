@@ -1,0 +1,277 @@
+
+HIVE CUSTOM FUNCTIONS - NOTES
+=============================
+
+1. SAVING QUERY OUTPUTS TO A FILE
+---------------------------------
+- To save Hive query output to a file:
+  hive -e 'SELECT * FROM employees;' > hello.txt
+
+- To pass the file as input to a Python function:
+  cat hello.txt | python main.py
+
+Q: If I close the Hive session what happens to the function?
+A: The custom function created as a TEMPORARY FUNCTION will only be available during the session. Once the Hive session is closed, the function is lost unless you create a PERMANENT FUNCTION.
+
+------------------------------------------------------------
+
+2. TYPES OF HIVE CUSTOM FUNCTIONS
+---------------------------------
+- Standard (row-level, single row input/output)
+- Aggregate (multi-row input → single result)
+- Table-Generating (one row input → multiple rows output)
+
+Input/Output types:
+- Primitive (int, string, boolean, etc.)
+- Collection (array, map, struct, union)
+
+------------------------------------------------------------
+
+3. SIMPLE UDF (User Defined Function)
+-------------------------------------
+- Works only with PRIMITIVE data types (int, string, float, etc.).
+- Logic is implemented inside the evaluate() function.
+
+Code Example (Java):
+@Description(
+    name = "replaceText",
+    value = "_FUNC_(text,str1,str2) - replaces all occurrences of a string within a text with another string",
+    extended = "Example:\n" +
+               " > SELECT name,replaceText(name,'abc','def') FROM authors a;\n" +
+               " abcabc defdef"
+)
+public class simpleUDF extends UDF {
+    private Text result = new Text();
+    
+    public Text evaluate(String str, String str1, String str2) {
+        String rep = str.replace(str1, str2);
+        result.set(rep);
+        return result;
+    }
+}
+
+Steps to use:
+1. Create a JAR:
+   jar -cf udfs.jar simpleUDF.class
+
+2. Add jar in Hive:
+   hive> ADD JAR /path/udfs.jar;
+
+3. Create temporary function:
+   hive> CREATE TEMPORARY FUNCTION function_name AS 'com.yourcompany.YourUDFClass';
+
+4. Use function:
+   hive> SELECT replaceText("abcabc", "abc", "def");
+   Output: defdef
+
+   SELECT function_name(column1) FROM table1;
+   SELECT aggregate_function(column1) FROM table1 GROUP BY column2;
+   SELECT col1, generated_col FROM table1 LATERAL VIEW table_function(column1) t AS generated_col;
+
+------------------------------------------------------------
+
+4. GENERIC UDF
+--------------
+- Works with BOTH PRIMITIVE and COLLECTION data types (arrays, maps, structs, unions).
+- Uses ObjectInspector to handle multiple data types dynamically.
+- Supports LAZY EVALUATION: data is deserialized only when used.
+
+LAZY EVALUATION CONCEPT:
+The row data is not deserialized in memory until it is used by the custom function. This improves performance by avoiding unnecessary data processing.
+
+
+Q: Difference between Simple and Generic UDF?
+A:
+- Simple UDF: works only with primitive types.
+- Generic UDF: works with any datatype (primitive + collection).
+
+GENERIC UDF METHODS EXPLAINED
+--------------------------------
+INITIALIZE() METHOD:
+- Runs in the beginning when a function is called
+- Runs only ONCE for a query and NOT for every row in the query
+- Has 3 purposes:
+  1. VERIFY THE INPUT TYPES against the expected types
+  2. SET UP OBJECTINSPECTORS for the inputs
+  3. SET UP OBJECTINSPECTORS for the output
+
+EVALUATE() METHOD:
+- Where the logic for the function is implemented
+- Called ONCE for each row
+- The row is passed as a DEFERREDOBJECT array - these objects are not deserialized
+- They are only deserialized if the evaluate method uses them
+- ObjectInspectors are used to extract data from these deferred objects
+- Logic is implemented after getting data using ObjectInspectors
+- DEFERREDOBJECT + OBJECTINSPECTOR combination helps in lazy evaluation
+- Until data is extracted using ObjectInspector, it remains in raw byte form
+
+GETDISPLAYSTRING() METHOD:
+- Used for documentation
+- Returns a string that will be used when you run the EXPLAIN command
+- Helps in query plan explanation
+
+
+Example Use Case:
+CONTAINSSTRING() - check if a string is present in a list of strings (requires Generic UDF, cannot be done with simple UDF).
+
+
+OBJECTINSPECTOR INTERFACE
+---------------------------
+The Generic UDF uses an OBJECTINSPECTOR class to handle the data.
+OBJECTINSPECTOR is an interface that helps us deal with any datatype.
+
+It has methods to:
+- Find the datatype of an input/output object
+- Access the data in an input/output object
+
+THERE ARE 5 MAJOR SUB-INTERFACES OF OBJECTINSPECTOR:
+1. PrimitiveObjectInspector - for primitive types
+2. ListObjectInspector - for arrays/lists
+3. StructObjectInspector - for structs
+4. MapObjectInspector - for maps
+5. UnionObjectInspector - for union types
+
+EXAMPLES:
+- ListObjectInspector has methods: getListLength() and getListElement()
+- MapObjectInspector has methods: getMapSize() and getMapValueElement()
+
+THE SIMPLE UDF IS RESTRICTED TO USING THE PRIMITIVEOBJECTINSPECTOR.
+This is why Simple UDFs can only deal with primitive data types.
+
+
+
+------------------------------------------------------------
+
+5. AGGREGATE FUNCTIONS (UDAF)
+------------------------------
+- Aggregate functions process multiple rows and return a single value.
+- Example: SUM(), AVG(), COUNT().
+
+Custom UDAF:
+- Simple UDAF works with primitive types.
+- Requires UDAFEvaluator class where logic resides.
+
+UDAFEvaluator methods:
+- init(): initialize/reset aggregation buffer.
+- iterate(): process each row (input added to aggregation).
+- terminatePartial(): return partial aggregation result (mapper side).
+- merge(): combine partial results (reducer side).
+- terminate(): return final aggregation result.
+
+Example: Custom Average Function
+- init(): reset sum=0, count=0
+- iterate(): sum += value; count++
+- terminatePartial(): return (sum, count)
+- merge(): add partial sums and counts
+- terminate(): return sum/count
+
+------------------------------------------------------------
+
+6. TABLE GENERATING FUNCTIONS (UDTF)
+------------------------------------
+- Input: single row
+- Output: multiple rows
+- Example: EXPLODE()
+
+EXPLODE Example:
+SELECT EXPLODE(ARRAY(1,2,3));
+Output:
+  1
+  2
+  3
+
+With table:
+SELECT empName, subordinate
+FROM employeeDetails
+LATERAL VIEW EXPLODE(subordinates) exp AS subordinate
+WHERE empName = "Vitthal";
+
+Output:
+ Vitthal   Anuradha
+ Vitthal   Arun
+ Vitthal   Swetha
+
+Custom GenericUDTF:
+Methods to Override:
+INITIALIZE():
+- Verify the input types against the expected types
+- Set up ObjectInspectors for the inputs
+- Set up ObjectInspectors for the output
+- A table generating function gives rows of a table as output
+- Rows of a table are treated as structs
+
+PROCESS():
+- This method processes each input row
+- Returns the relevant output rows
+- Called once for each input row
+- Can generate zero, one, or multiple output rows per input row
+
+CLOSE():
+- Called when there are no more input rows
+- Used for cleanup operations
+- Any final processing or resource cleanup code can be put here
+
+
+EXAMPLE GENERIC UDTF STRUCTURE:
+
+public class SplitUDTF extends GenericUDTF {
+    
+    @Override
+    public StructObjectInspector initialize(ObjectInspector[] args) {
+        // Verify input types and set up output structure
+        return outputStructOI;
+    }
+    
+    @Override  
+    public void process(Object[] args) {
+        // Process input and forward output rows
+        String input = (String) args[0];
+        String[] parts = input.split(",");
+        for (String part : parts) {
+            forward(new Object[]{part.trim()});
+        }
+    }
+    
+    @Override
+    public void close() {
+        // Cleanup code
+    }
+}
+
+------------------------------------------------------------
+
+7. SERIALIZATION AND DESERIALIZATION (SerDe)
+--------------------------------------------
+- Serialization: how data is written to HDFS.
+- Deserialization: how data is read from HDFS.
+
+Hive uses SerDe classes to understand different data formats (CSV, JSON, ORC, Parquet, etc.).
+
+Common SERDE Classes:
+- INTWRITABLE
+- LONGWRITABLE
+- HIVECHARWRITABLE
+- HIVEVARCHARWRITABLE
+
+------------------------------------------------------------
+
+SUMMARY
+-------
+- Simple UDF → primitive types only.
+- Generic UDF → works with both primitive and collection types.
+- UDAF → aggregate functions, requires evaluator with 5 key methods.
+- UDTF → table-generating functions, produce multiple rows from one input.
+- SerDe → controls how Hive reads/writes data.
+- Temporary functions exist only in current session. Permanent functions need to be registered permanently.
+
+
+BEST PRACTICES
+-----------------
+1. Always add proper @Description annotation for documentation
+2. Handle null values appropriately in your functions
+3. Use lazy evaluation in Generic UDFs for better performance
+4. Test your functions thoroughly before deploying to production
+5. Remember that temporary functions are lost when session ends
+6. Consider creating permanent functions for frequently used logic
+7. Use appropriate data types to avoid unnecessary conversions
+8. Implement proper error handling in your custom functions
